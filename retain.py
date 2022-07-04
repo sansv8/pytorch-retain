@@ -25,53 +25,94 @@ from tqdm import tnrange, tqdm_notebook
 """ Arguments """
 parser = argparse.ArgumentParser()
 
+# Path to the dataset
 parser.add_argument('data_path', metavar='DATA_PATH', help="Path to the dataset")
+
+# Learning rate
+# Iniial: 0.001
 parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float, metavar='LR',
-					help='learning rate (default: 1e-3)')
+		    help='learning rate (default: 1e-3)')
+# Weight Decay/Number of weights to drop out
 parser.add_argument('--weight-decay', '--wd', default=0, type=float, metavar='W', help='weight decay (default: 0)')
+
+# Number of epochs
+# Initial: 10
 parser.add_argument('--epochs', default=10, type=int, metavar='N', help='number of total epochs to run')
+
+# Batch-Size
+# Initial: 128
 parser.add_argument('-b', '--batch-size', default=128, type=int, metavar='N',
 					help='mini-batch size for train (default: 64)')
+# Evalutation Batch size. Use for evaluation
+# Initial: 256
 parser.add_argument('--eval-batch-size', type=int, default=256, help='mini-batch size for eval (default: 1000)')
 
+# Tells the program to not use cuda
 parser.add_argument('--no-cuda', dest='cuda', action='store_false', help='NOT use cuda')
+
+# Do not plot the dataset
 parser.add_argument('--no-plot', dest='plot', action='store_false', help='no plot')
+
+# Allows the use of threads
+# Initial: number of cpus. 2 for my computer so 4 threads
 parser.add_argument('--threads', type=int, default=-1,
 					help='number of threads for data loader to use (default: -1 = (multiprocessing.cpu_count()-1 or 1))')
+
+# Random Seed
 parser.add_argument('--seed', type=int, default=0, help='random seed to use. Default=0')
 
+# Saving both the model and checkpoints
 parser.add_argument('--save', default='./', type=str, metavar='SAVE_PATH',
 					help='path to save checkpoints (default: none)')
+
+# Resume training from previous chekcpoint
 parser.add_argument('--resume', default='', type=str, metavar='LOAD_PATH',
 					help='path to latest checkpoint (default: none)')
 
+# Set both cuda and plot
 parser.set_defaults(cuda=True, plot=True)
 
 """ Helper Functions """
 
-
+# Stores the current value
 class AverageMeter(object):
 	"""Computes and stores the average and current value"""
-
+	
+	# Intialize the value by resetting
+	# Contains 4 memeber variables
+	# value
+	# average
+	# sum
+	# and count
 	def __init__(self):
 		self.reset()
 
+	# Does a reset by setting all member variables to 0
 	def reset(self):
 		self.val = 0
 		self.avg = 0
 		self.sum = 0
 		self.count = 0
 
+	# Update by passing in a new value and number of values
 	def update(self, val, n=1):
+		# Set self.val to value
 		self.val = val
+		
+		# Add value * n to current sum
 		self.sum += val * n
+		
+		# Add n to count
 		self.count += n
+		
+		# Caculate the current average by dividing sum by count
 		self.avg = self.sum / self.count
 
 
 """ Custom Dataset """
 
-
+# Creates a custom dataset
+# It takes in sequences, labels, num of features
 class VisitSequenceWithLabelDataset(Dataset):
 	def __init__(self, seqs, labels, num_features, reverse=True):
 		"""
@@ -81,37 +122,57 @@ class VisitSequenceWithLabelDataset(Dataset):
 			num_features (int): number of total features available
 			reverse (bool): If true, reverse the order of sequence (for RETAIN)
 		"""
-
+		
+		# If the number of sequences and labels are not the same length
+		# Then do not make the dataset
 		if len(seqs) != len(labels):
 			raise ValueError("Seqs and Labels have different lengths")
 
+		# Set sequences
 		self.seqs = []
 		# self.labels = []
 
+		# For each sequence and label from seqs/labels
 		for seq, label in zip(seqs, labels):
 
+			# If reverse is true
+			# Then reverse the sequence
 			if reverse:
 				sequence = list(reversed(seq))
 			else:
 				sequence = seq
 
+			# Create three lists, row, col and val
 			row = []
 			col = []
 			val = []
+			
+			# For each visit in sequence
 			for i, visit in enumerate(sequence):
+				# For each code in visit
 				for code in visit:
+					# If code is less than number of features
+					# Then add it
 					if code < num_features:
+						# Add the index of the visit to row
 						row.append(i)
+						
+						# Add the code to col
 						col.append(code)
+						
+						# Add 1.0 to val
 						val.append(1.0)
-
+						
+			# Add the sequence to seqs by converting sequence to a coo matrix
 			self.seqs.append(coo_matrix((np.array(val, dtype=np.float32), (np.array(row), np.array(col))),
 										shape=(len(sequence), num_features)))
 		self.labels = labels
 
+	# Return the length of labels
 	def __len__(self):
 		return len(self.labels)
 
+	# Get the sequence and label at index
 	def __getitem__(self, index):
 		return self.seqs[index], self.labels[index]
 
@@ -161,38 +222,85 @@ def visit_collate_fn(batch):
 
 """ RETAIN model class """
 
-
+# The Retain Model
 class RETAIN(nn.Module):
+	# Initialize the model with following parameters
+	# Input Dimensions
+	# Embedding Dimenstions (Default 128)
+	# Dropout Input (Default: 0.8)
+	# Dropout Embedding (Default: 0.5)
+	# Alpha Dimension (Default: 128)
+	# Beta Dimension (Default: 128)
+	# Dropout for Context (Default: 0.5)
+	# Output Dimnesion (Defautl 2)
+	# l2 (Default: 0.0001)
+	# batch_first
 	def __init__(self, dim_input, dim_emb=128, dropout_input=0.8, dropout_emb=0.5, dim_alpha=128, dim_beta=128,
 				 dropout_context=0.5, dim_output=2, l2=0.0001, batch_first=True):
 		super(RETAIN, self).__init__()
 		self.batch_first = batch_first
+		
+		# Embedding Layer 
+		# Input Dropout Layer
+		# Linear Layer v = W(emb) * X
+		# Embedded Dropout Layer
 		self.embedding = nn.Sequential(
 			nn.Dropout(p=dropout_input),
 			nn.Linear(dim_input, dim_emb, bias=False),
 			nn.Dropout(p=dropout_emb)
 		)
+		# Initailze weight using xavier normal
 		init.xavier_normal(self.embedding[1].weight)
 
+		# Set RNN Alpha as GRU
+		# input_size = dim_emb
+		# hidden_size = dim_alpha
+		# num_layers = 1
+		# g(i) .... g(1) = RRN_alpha(v(i)...v(1))
 		self.rnn_alpha = nn.GRU(input_size=dim_emb, hidden_size=dim_alpha, num_layers=1, batch_first=self.batch_first)
 
+		# e(j) = w(alpha) * g(j) + b(alpha) for j = 1 ... i
+		# Input_Dim = dim_alpha
+		# Output_Dim = 1
 		self.alpha_fc = nn.Linear(in_features=dim_alpha, out_features=1)
+		
+		# Initialize xavier nomral weights
 		init.xavier_normal(self.alpha_fc.weight)
+		
+		# Set bias to be 0
 		self.alpha_fc.bias.data.zero_()
 
+		# Set RNN Beta as GRU
+		# input_size = dim_emb
+		# hidden_size = dim_beta
+		# num_layers = 1
+		# h(i) ... h(1) = RNN_betta(v(i) ... v(1))
 		self.rnn_beta = nn.GRU(input_size=dim_emb, hidden_size=dim_beta, num_layers=1, batch_first=self.batch_first)
 
+		# b(j) = W(beta) * h(j) + b(j) for j = 1 .. i
+		# input_dim = dim_beta
+		# output_dim = dim_emb
 		self.beta_fc = nn.Linear(in_features=dim_beta, out_features=dim_emb)
+		
+		# Initialize weights as xavier_normal for tanh
 		init.xavier_normal(self.beta_fc.weight, gain=nn.init.calculate_gain('tanh'))
+		
+		# Set bias to be 0
 		self.beta_fc.bias.data.zero_()
 
+		# Output Layer
+		# Dropout layer
+		# Linear layer y(i) = W * c(i) + b
 		self.output = nn.Sequential(
 			nn.Dropout(p=dropout_context),
 			nn.Linear(in_features=dim_emb, out_features=dim_output)
 		)
+		
+		# Initialize weights and biases for output layer
 		init.xavier_normal(self.output[1].weight)
 		self.output[1].bias.data.zero_()
 
+	# Forward function by getting input and lengths
 	def forward(self, x, lengths):
 		if self.batch_first:
 			batch_size, max_len = x.size()[:2]
@@ -201,9 +309,11 @@ class RETAIN(nn.Module):
 
 		# emb -> batch_size X max_len X dim_emb
 		emb = self.embedding(x)
-
+		
+		# Pack the embedded sequnece
 		packed_input = pack_padded_sequence(emb, lengths, batch_first=self.batch_first)
 
+		# Input packed_input into RNN_Alpha
 		g, _ = self.rnn_alpha(packed_input)
 
 		# alpha_unpacked -> batch_size X max_len X dim_alpha
@@ -219,6 +329,7 @@ class RETAIN(nn.Module):
 		# e => batch_size X max_len X 1
 		e = self.alpha_fc(alpha_unpacked)
 
+		# Softmax Function using mask
 		def masked_softmax(batch_tensor, mask):
 			exp = torch.exp(batch_tensor)
 			masked_exp = exp * mask
@@ -229,6 +340,7 @@ class RETAIN(nn.Module):
 		# alpha value for padded visits (zero) will be zero
 		alpha = masked_softmax(e, mask)
 
+		# Input packed_input into RNN Beta
 		h, _ = self.rnn_beta(packed_input)
 
 		# beta_unpacked -> batch_size X max_len X dim_beta
@@ -251,32 +363,44 @@ class RETAIN(nn.Module):
 
 """ Epoch function """
 
-
+# Epoch function
+# optimizer is needed for train
 def epoch(loader, model, criterion, optimizer=None, train=False):
 	if train and not optimizer:
 		raise AttributeError("Optimizer should be given for training")
 
+	# Training Mode
 	if train:
 		model.train()
 		mode = 'Train'
+	# Evaluation Mode
 	else:
 		model.eval()
 		mode = 'Eval'
 
+	# Keeps track of all losses
 	losses = AverageMeter()
+	
+	# Keeps track of labels and ouputs
 	labels = []
 	outputs = []
 
+	# For each batch from loader
 	for bi, batch in enumerate(tqdm_notebook(loader, desc="{} batches".format(mode), leave=False)):
+		# Get inputs, targets, and lengths of each input
 		inputs, targets, lengths = batch
 
+		# Get the variabels for inputs and ouputs
 		input_var = torch.autograd.Variable(inputs)
 		target_var = torch.autograd.Variable(targets)
 		if args.cuda:
 			input_var = input_var.cuda()
 			target_var = target_var.cuda()
 
+		# Run the model
 		output, alpha, beta = model(input_var, lengths)
+		
+		# Get the loss function
 		loss = criterion(output, target_var)
 		assert not np.isnan(loss.data[0]), 'Model diverged with loss = NaN'
 
@@ -299,7 +423,7 @@ def epoch(loader, model, criterion, optimizer=None, train=False):
 
 """ Main function """
 
-
+# Main function, take in arguments
 def main(argv):
 	global args
 	args = parser.parse_args(argv)
