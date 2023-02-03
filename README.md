@@ -39,16 +39,23 @@ If you want to create a dataset that determine patient mortality, you can run mi
 If you want to create a dataset that determine if a patient will have have heart failure or not in their next visit, firstly, group diagnoses and procedure groups by running group_codes.py with AppendixASingleDX.txt and CCS_services_procedures_v2022-1_052422.csv to form diagnoses.groups and procedure.groups. Afterwards, run heartFailure.py with ADMISSIONS.csv, DIAGNOSES_ICD.csv, CPTEVENTS.csv, PRESCRIPTIONS.csv, procdure.groups, and diagnoses.groups.
 
 Running either mimic.py or heartFailure.py will produce the following: 
+
 train.seqs - Input sequences for training set
+
 train.labels - Output labels for training set
+
 valid.seqs - Input sequences for validation set
+
 valid.labels - Output labels for validation set
+
 test.seqs - Input sequences for test set
+
 test.labels - Output labels for test set
 
 # Step 3: Understanding the Heart Failure Dataset
 To have a better understanding of the heart failure dataset, you can run histogram.py which takes in the dataset created and produces a histogram as well as other metrics. 
 The histogram created is called Frequency of Visits.png, which determines the frequency of the number of visits for inputs of the dataset. 
+
 hfDataInfo.txt contains additional metrics about the dataset, including the number of patients in total, the number and percentage of patients with heart failure, the number and percentage of pateints without heart failure, the mean number of visits for all inputs, the highest number of visits for all inputs.
 
 # Step 4: Training RETAIN on dataset
@@ -58,64 +65,114 @@ RETAIN - REverse Time AttentIoN model implimented form the paper RETAIN: An Inte
 Transformer RETAIN - RETAIN which replaces the RNNs with Transformer Encoders 
 
 If you want to train dataset on RETAIN, run retain.py. You can run it with the following arguments: 
+
 data_path - Path of the dataset. It is likely the datasets is in Data folder, so you should run Data/ as the argument. 
+
 lr - learning rate
+
 weight-decay - Weight Decay/Number of weights to drop
+
 epochs - Number of epochs 
+
 batch-size - Size of training batch
+
 eval-batcb-size - Size of validation batch size
+
 no-cuda - Doesn't use cuda gpu
+
 no-plot - Doens't use plot
-threads - Number of threads to use 
+
+threads - Number of threads to use
+
 save - Folder/Location to save model and checkpoints
 
 Othwerise, if you want to train dataset on Transformer RETAIN. You can run it with the following arguments: 
+
 data_path - Path of the dataset. It is likely the datasets is in Data folder, so you should run Data/ as the argument. 
+
 lr - learning rate
+
 weight-decay - Weight Decay/Number of weights to drop
+
 epochs - Number of epochs 
+
 batch-size - Size of training batch
+
 eval-batcb-size - Size of validation batch size
+
 no-cuda - Doesn't use cuda gpu
+
 no-plot - Doens't use plot
+
 threads - Number of threads to use 
+
 save - Folder/Location to save model and checkpoints
+
 embSize - Size of the embedding layer 
+
 embDropout - Dropout of the embedding layer
+
 contextDropout - Dropout of the context layer
+
 heads - Number of heads for the attention layer in the Alpha Transformer
+
 attentionDropout - Dropout for the attention layer in the Alpha Transformer
+
 ffDropout - Dropout for the feed forward layer in the Alpha Transformer
+
 normEps - The epsilon value for the norm layer in the Alpha Transformer
+
 attEps - The epsilon value for the attention layer in the Alpha Transformer
+
 ffSize - The size of the feed forward lyaer in the Alpha Transformer
+
 transDropout - The dropout of the transformer layer in the Alpha Transformer
+
 numLayers - The number of transformer layers in the Alpha Transformer
+
 headsBeta - Number of heads for the attention layer in the Beta Transformer
+
 attentionDropoutBeta - Dropout for the attention layer in the Beta Transformer
+
 ffDropoutBeta - Dropout for the feed forward layer in the Beta Transformer
+
 normEpsBeta - The epsilon value for the norm layer in the Beta Transformer
+
 attEpsBeta - The epsilon value for the attention layer in the Beta Transformer
+
 ffSizeBeta - The size of the feed forward lyaer in the Beta Transformer
+
 transDropoutBeta - The dropout of the transformer layer in the Beta Transformer
+
 numLayersBeta - The number of transformer layers in the Beta Transformer
+
 metric - The metric used to determine the best epoch for model. The options are valid_loss, train_loss, and valid_auc
+
 name - Name of the training result file
+
 gpu - The GPUs being use for training for the model. This can be use if some GPUs are already being used by another program. 
 
-Both retain.py and transformer_retain.py will save any metrics and hyperameters in train_result + name + .txt and will save model as best_model.pth and best_model_params.pth
+Both retain.py and transformer_retain.py will save any metrics and hyperameters in train_result{name}.txt and will save model as best_model.pth and best_model_params.pth
 
 # Step 5: Optimizing Transformer RETAIN
 This step only applies Transformer RETAIN. To optimize Transformer RETAIN with the best possible parameters, you run transform_retain_optimization.py with ray and the following parameters:
 
 data_path - Path of the dataset. It is likely the datasets is in Data folder, so you should run Data/ as the argument. 
+
 epochs - Number of epochs for each trial
+
 no-cuda - Doesn't use cuda gpu
+
 threads - Number of threads to use 
+
 save - Folder/Location to save metrics
+
 trials - Number of trials to run tunner to optimize model
+
 metric - The metric used to determine how should the tunner optimze the model. For example, if the metric is valid_loss, the tuner goal is to find the set of hyper parameters where the model have the lowest validation loss. The options are valid_loss for minimizing validation loss, train_loss for minimizing training loss, valid_auc for maximizing validation auc, and train_auc for maximizing training auc
+
 name - Name of the resulting file 
+
 gpu - The GPUs to be used in train_retain_optmization.py
 
-Once all trials are completed, the program return transform_optmize.txt, which contains a series of best possible hyperparamters of all possible metrics, including the main metric that the program is trying to find the best model for. 
+Once all trials are completed, the program return transform_optimize{name}.txt, which contains a series of best possible hyperparamters of all possible metrics, including the main metric that the program is trying to find the best model for. 
