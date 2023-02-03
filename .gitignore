@@ -61,4 +61,15 @@ fabric.properties
 
 .idea/
 
+# Ignore all csv files, which do include sensitive information
+ADMISSIONS.csv
+PATIENTS.csv
+patientsIV.csv
+PRESCRIPTIONS.csv
+admissionsIV.csv
+DIAGNOSES_ICD.csv
+diagnosesIV.csv
+AppendixASingleDX.txt
+CCS_services_procedures_v2022-1_052422.csv
+CPTEVENTS.csv
 # End of https://www.gitignore.io/api/pycharm+all

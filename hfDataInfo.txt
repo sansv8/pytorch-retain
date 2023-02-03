@@ -1,0 +1,7 @@
+Number of patients: 7062
+Number of patients without heart failure: 4099
+Number of patients with heart failure: 2963
+Percentage of patients without heart failure: 58.043047295383744%
+Percentage of patients with heart failure: 41.956952704616256%
+Highest number of visits: 41
+Mean number of total visits: 1.6231945624468989

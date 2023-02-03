@@ -1,0 +1,31 @@
+Best Validation Epoch: 49
+Best Validation Loss: 0.4145970247591065
+Best Validation AUROC: 0.9115217212778188
+Best Validation AUPR: 0.9110538398324335
+Best Validation True Negatives: 390
+Best Validation False Positives: 20
+Best Validation False Negatives: 88
+Best Validation True Positives: 209
+Best Validation Recall: 0.7037037037037037
+Best Validation Precision: 0.9126637554585153
+Best Validation F1 Score: 0.7946768060836502
+Train Loss: 0.5203130095381012
+Train AUROC: 0.8020266709474856
+Train AUPR: 0.7843773021225187
+Train True Negatives: 2765
+Train False Positives: 309
+Train False Negatives: 1065
+Train True Positives: 1156
+Train Recall: 0.5204862674470959
+Train Precision: 0.7890784982935154
+Train F1 Score: 0.6272381985892567
+Test Loss: 0.4185237168141131
+Test AUROC: 0.9095752260893395
+Test AUPR: 0.9070166783640652
+Test True Negatives: 583
+Test False Positives: 32
+Test False Negatives: 136
+Test True Positives: 309
+Test Recall: 0.6943820224719102
+Test Precision: 0.906158357771261
+Test F1 Score: 0.7862595419847328

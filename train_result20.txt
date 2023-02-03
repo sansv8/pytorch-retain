@@ -1,0 +1,52 @@
+Embeded Size: 256
+Embeded Dropout: 0.8
+Context Dropout: 0.8
+Alpha Number of Heads: 32
+Alpha Attention Dropout: 0.8
+Alpha Feed Forward Dropout 0.2
+Alpha Norm Eps: 1.7209649595760155e-05
+Alpha Attention Eps: 3.645059175901178e-07
+Alpha Feed Forward Size: 1025
+Alpha Transformer Dropout: 0.0
+Alpha Number of Layers: 2
+Beta Number of Heads: 8
+Beta Attention Dropout: 0.2
+Beta Feed Forward Dropout 0.2
+Beta Norm Eps: 2.2900868150590532e-08
+Beta Attention Eps: 0.00020274541960987465
+Beta Feed Forward Size: 1025
+Beta Transformer Dropout: 0.0
+Beta Number of Layers: 2
+Batch Size: 64
+Evaluation Batch Size: 128
+Best Validation Epoch: 27
+Best Validation Loss: 0.3069331423818138
+Best Validation AUROC: 0.866527059209986
+Best Validation AUPR: 0.8004457087312742
+Best Validation True Negatives: 382
+Best Validation False Positives: 28
+Best Validation False Negatives: 59
+Best Validation True Positives: 238
+Best Validation Recall: 0.8013468013468014
+Best Validation Precision: 0.8947368421052632
+Best Validation F1 Score: 0.8454706927175845
+Train Loss: 0.3081200786138954
+Train AUROC: 0.8656624513684218
+Train AUPR: 0.7991272929200522
+Train True Negatives: 2864
+Train False Positives: 210
+Train False Negatives: 445
+Train True Positives: 1776
+Train Recall: 0.7996398018910401
+Train Precision: 0.8942598187311178
+Train F1 Score: 0.844307107202282
+Test Loss: 0.31983276459406007
+Test AUROC: 0.8498858134648763
+Test AUPR: 0.7885028276103113
+Test True Negatives: 581
+Test False Positives: 34
+Test False Negatives: 109
+Test True Positives: 336
+Test Recall: 0.755056179775281
+Test Precision: 0.9081081081081082
+Test F1 Score: 0.8245398773006135

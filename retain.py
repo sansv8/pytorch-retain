@@ -13,14 +13,15 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 import numpy as np
 from scipy.sparse import coo_matrix
-from sklearn.metrics import roc_auc_score, average_precision_score
+from sklearn.metrics import roc_auc_score, average_precision_score, confusion_matrix, f1_score, precision_score, recall_score
 import matplotlib.pyplot as plt
+import os
 
 import sys
 import argparse
 import pickle
 import time
-from tqdm import tnrange, tqdm_notebook
+from tqdm import tnrange, trange, tqdm_notebook
 
 """ Arguments """
 parser = argparse.ArgumentParser()
@@ -64,10 +65,6 @@ parser.add_argument('--seed', type=int, default=0, help='random seed to use. Def
 # Saving both the model and checkpoints
 parser.add_argument('--save', default='./', type=str, metavar='SAVE_PATH',
 					help='path to save checkpoints (default: none)')
-
-# Resume training from previous chekcpoint
-parser.add_argument('--resume', default='', type=str, metavar='LOAD_PATH',
-					help='path to latest checkpoint (default: none)')
 
 # Set both cuda and plot
 parser.set_defaults(cuda=True, plot=True)
@@ -214,6 +211,7 @@ def visit_collate_fn(batch):
 		sorted_padded_seqs.append(padded)
 		sorted_labels.append(batch_label[i])
 
+	
 	seq_tensor = np.stack(sorted_padded_seqs, axis=0)
 	label_tensor = torch.LongTensor(sorted_labels)
 
@@ -235,8 +233,8 @@ class RETAIN(nn.Module):
 	# Output Dimnesion (Defautl 2)
 	# l2 (Default: 0.0001)
 	# batch_first
-	def __init__(self, dim_input, dim_emb=128, dropout_input=0.8, dropout_emb=0.5, dim_alpha=128, dim_beta=128,
-				 dropout_context=0.5, dim_output=2, l2=0.0001, batch_first=True):
+	def __init__(self, dim_input, dim_emb=128, dropout_input=0.8, dropout_emb=0.6, dim_alpha=128, dim_beta=128,
+				 dropout_context=0.6, dim_output=1, l2=0.0001, batch_first=True):
 		super(RETAIN, self).__init__()
 		self.batch_first = batch_first
 		
@@ -250,7 +248,7 @@ class RETAIN(nn.Module):
 			nn.Dropout(p=dropout_emb)
 		)
 		# Initailze weight using xavier normal
-		init.xavier_normal(self.embedding[1].weight)
+		init.xavier_normal_(self.embedding[1].weight)
 
 		# Set RNN Alpha as GRU
 		# input_size = dim_emb
@@ -265,7 +263,7 @@ class RETAIN(nn.Module):
 		self.alpha_fc = nn.Linear(in_features=dim_alpha, out_features=1)
 		
 		# Initialize xavier nomral weights
-		init.xavier_normal(self.alpha_fc.weight)
+		init.xavier_normal_(self.alpha_fc.weight)
 		
 		# Set bias to be 0
 		self.alpha_fc.bias.data.zero_()
@@ -283,7 +281,7 @@ class RETAIN(nn.Module):
 		self.beta_fc = nn.Linear(in_features=dim_beta, out_features=dim_emb)
 		
 		# Initialize weights as xavier_normal for tanh
-		init.xavier_normal(self.beta_fc.weight, gain=nn.init.calculate_gain('tanh'))
+		init.xavier_normal_(self.beta_fc.weight, gain=nn.init.calculate_gain('tanh'))
 		
 		# Set bias to be 0
 		self.beta_fc.bias.data.zero_()
@@ -297,7 +295,7 @@ class RETAIN(nn.Module):
 		)
 		
 		# Initialize weights and biases for output layer
-		init.xavier_normal(self.output[1].weight)
+		init.xavier_normal_(self.output[1].weight)
 		self.output[1].bias.data.zero_()
 
 	# Forward function by getting input and lengths
@@ -348,7 +346,7 @@ class RETAIN(nn.Module):
 
 		# Beta -> batch_size X max_len X dim_emb
 		# beta for padded visits will be zero-vectors
-		beta = F.tanh(self.beta_fc(beta_unpacked) * mask)
+		beta = torch.tanh(self.beta_fc(beta_unpacked) * mask)
 
 		# context -> batch_size X (1) X dim_emb (squeezed)
 		# Context up to i-th visit context_i = sum(alpha_j * beta_j * emb_j)
@@ -402,15 +400,16 @@ def epoch(loader, model, criterion, optimizer=None, train=False):
 		
 		# Get the loss function
 		loss = criterion(output, target_var)
-		assert not np.isnan(loss.data[0]), 'Model diverged with loss = NaN'
+		assert not np.isnan(loss.item()), 'Model diverged with loss = NaN'
 
 		labels.append(targets)
-
+		print(output[0])
 		# since the outputs are logit, not probabilities
+		# Replace sigmoid with softamxin future
 		outputs.append(F.softmax(output).data)
 
 		# record loss
-		losses.update(loss.data[0], inputs.size(0))
+		losses.update(loss.item(), inputs.size(0))
 
 		# compute gradient and do update step
 		if train:
@@ -425,6 +424,7 @@ def epoch(loader, model, criterion, optimizer=None, train=False):
 
 # Main function, take in arguments
 def main(argv):
+	os.environ["CUDA_VISIBLE_DEVICES"]="1,2"
 	global args
 	args = parser.parse_args(argv)
 	if args.threads == -1:
@@ -540,6 +540,12 @@ def main(argv):
 
 		valid_auc = roc_auc_score(valid_y_true.numpy(), valid_y_pred.numpy()[:, 1], average="weighted")
 		valid_aupr = average_precision_score(valid_y_true.numpy(), valid_y_pred.numpy()[:, 1], average="weighted")
+		# Find confusion matrix 
+		valid_confusion_matrix = confusion_matrix(valid_y_true.numpy(), np.argmax(valid_y_pred.numpy(), axis=1))
+		valid_f1 = f1_score(valid_y_true.numpy(), np.argmax(valid_y_pred.numpy(), axis=1))
+		valid_precision = precision_score(valid_y_true.numpy(), np.argmax(valid_y_pred.numpy(), axis=1))
+		valid_recall = recall_score(valid_y_true.numpy(), np.argmax(valid_y_pred.numpy(), axis=1))
+		
 
 		is_best = valid_auc > best_valid_auc
 
@@ -548,6 +554,10 @@ def main(argv):
 			best_valid_loss = valid_loss
 			best_valid_auc = valid_auc
 			best_valid_aupr = valid_aupr
+			best_valid_confusion_matrix = valid_confusion_matrix
+			best_valid_recall = valid_recall
+			best_valid_precision = valid_precision
+			best_valid_f1 = valid_f1
 
 			# print("\t New best validation AUC!")
 			# print('\t Evaluation on the test set')
@@ -563,9 +573,17 @@ def main(argv):
 
 			train_auc = roc_auc_score(train_y_true.numpy(), train_y_pred.numpy()[:, 1], average="weighted")
 			train_aupr = average_precision_score(train_y_true.numpy(), train_y_pred.numpy()[:, 1], average="weighted")
+			train_confusion_matrix = confusion_matrix(train_y_true.numpy(), np.argmax(train_y_pred.numpy(), axis=1))
+			train_f1 = f1_score(train_y_true.numpy(), np.argmax(train_y_pred.numpy(), axis=1))
+			train_precision = precision_score(train_y_true.numpy(), np.argmax(train_y_pred.numpy(), axis=1))
+			train_recall = recall_score(train_y_true.numpy(), np.argmax(train_y_pred.numpy(), axis=1))
 
 			test_auc = roc_auc_score(test_y_true.numpy(), test_y_pred.numpy()[:, 1], average="weighted")
 			test_aupr = average_precision_score(test_y_true.numpy(), test_y_pred.numpy()[:, 1], average="weighted")
+			test_confusion_matrix = confusion_matrix(test_y_true.numpy(), np.argmax(test_y_pred.numpy(), axis=1))
+			test_f1 = f1_score(test_y_true.numpy(), np.argmax(test_y_pred.numpy(), axis=1))
+			test_precision = precision_score(test_y_true.numpy(), np.argmax(test_y_pred.numpy(), axis=1))
+			test_recall = recall_score(test_y_true.numpy(), np.argmax(test_y_pred.numpy(), axis=1))
 
 			# print("Train - Loss: {}, AUC: {}".format(train_loss, train_auc))
 			# print("Valid - Loss: {}, AUC: {}".format(valid_loss, valid_auc))
@@ -576,12 +594,34 @@ def main(argv):
 				f.write('Best Validation Loss: {}\n'.format(best_valid_loss))
 				f.write('Best Validation AUROC: {}\n'.format(best_valid_auc))
 				f.write('Best Validation AUPR: {}\n'.format(best_valid_aupr))
+				f.write('Best Validation True Negatives: {}\n'.format(best_valid_confusion_matrix[0][0]))
+				f.write('Best Validation False Positives: {}\n'.format(best_valid_confusion_matrix[0][1]))
+				f.write('Best Validation False Negatives: {}\n'.format(best_valid_confusion_matrix[1][0]))
+				f.write('Best Validation True Positives: {}\n'.format(best_valid_confusion_matrix[1][1]))
+				f.write('Best Validation Recall: {}\n'.format(best_valid_recall))
+				f.write('Best Validation Precision: {}\n'.format(best_valid_precision))
+				f.write('Best Validation F1 Score: {}\n'.format(best_valid_f1))
 				f.write('Train Loss: {}\n'.format(train_loss))
 				f.write('Train AUROC: {}\n'.format(train_auc))
 				f.write('Train AUPR: {}\n'.format(train_aupr))
+				f.write('Train True Negatives: {}\n'.format(train_confusion_matrix[0][0]))
+				f.write('Train False Positives: {}\n'.format(train_confusion_matrix[0][1]))
+				f.write('Train False Negatives: {}\n'.format(train_confusion_matrix[1][0]))
+				f.write('Train True Positives: {}\n'.format(train_confusion_matrix[1][1]))
+				f.write('Train Recall: {}\n'.format(train_recall))
+				f.write('Train Precision: {}\n'.format(train_precision))
+				f.write('Train F1 Score: {}\n'.format(train_f1))
 				f.write('Test Loss: {}\n'.format(test_loss))
 				f.write('Test AUROC: {}\n'.format(test_auc))
 				f.write('Test AUPR: {}\n'.format(test_aupr))
+				f.write('Test True Negatives: {}\n'.format(test_confusion_matrix[0][0]))
+				f.write('Test False Positives: {}\n'.format(test_confusion_matrix[0][1]))
+				f.write('Test False Negatives: {}\n'.format(test_confusion_matrix[1][0]))
+				f.write('Test True Positives: {}\n'.format(test_confusion_matrix[1][1]))
+				f.write('Test Recall: {}\n'.format(test_recall))
+				f.write('Test Precision: {}\n'.format(test_precision))
+				f.write('Test F1 Score: {}\n'.format(test_f1))
+				
 
 			torch.save(model, args.save + 'best_model.pth')
 			torch.save(model.state_dict(), args.save + 'best_model_params.pth')
@@ -602,9 +642,23 @@ def main(argv):
 	print('Best Validation Loss: {}\n'.format(best_valid_loss))
 	print('Best Validation AUROC: {}\n'.format(best_valid_auc))
 	print('Best Validation AUPR: {}\n'.format(best_valid_aupr))
+	print('Best Validation True Negatives: {}\n'.format(best_valid_confusion_matrix[0][0]))
+	print('Best Validation False Positives: {}\n'.format(best_valid_confusion_matrix[0][1]))
+	print('Best Validation False Negatives: {}\n'.format(best_valid_confusion_matrix[1][0]))
+	print('Best Validation True Positives: {}\n'.format(best_valid_confusion_matrix[1][1]))
+	print('Best Validation Recall: {}\n'.format(best_valid_recall))
+	print('Best Validation Precision: {}\n'.format(best_valid_precision))
+	print('Best Validation F1 Score: {}\n'.format(best_valid_f1))
 	print('Test Loss: {}\n'.format(test_loss))
 	print('Test AUROC: {}\n'.format(test_auc))
 	print('Test AUPR: {}\n'.format(test_aupr))
+	print('Test True Negatives: {}\n'.format(test_confusion_matrix[0][0]))
+	print('Test False Positives: {}\n'.format(test_confusion_matrix[0][1]))
+	print('Test False Negatives: {}\n'.format(test_confusion_matrix[1][0]))
+	print('Test True Positives: {}\n'.format(test_confusion_matrix[1][1]))
+	print('Test Recall: {}\n'.format(test_recall))
+	print('Test Precision: {}\n'.format(test_precision))
+	print('Test F1 Score: {}\n'.format(test_f1))
 
 
 if __name__ == "__main__":
