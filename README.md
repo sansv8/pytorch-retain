@@ -29,7 +29,7 @@ hfDataInfo.txt - Contains additional information on the heart failure dataset
 
 # How to use repository 
 # Step 1: Obtain Files
-Obtain the following files from the MIMIC-III Dataset, ADMISSIONS.csv, DIAGONSES.csv, CPTEVENTS.csv, PATIENTS.csv, and PRESECRIPTIONS.csv and put them in Data Folder. These files will be used to creating the heart failure dataset. You need access to  MIMIC-III before accessing these files. 
+Obtain the following files from the MIMIC-III Dataset, ADMISSIONS.csv, DIAGONSES.csv, CPTEVENTS.csv, PATIENTS.csv, and PRESECRIPTIONS.csv and put them in Data Folder. These files will be used to creating the heart failure dataset. You need access to  MIMIC-III before accessing these files. They can be obtained from https://physionet.org/content/mimiciii/1.4/
 
 You will also need CCS_services_procedures_v2022-1_052422.csv and AppendixASingleDX.txt for grouping codes. AppendixSingleDX.txt is obtained from https://www.hcup-us.ahrq.gov/toolssoftware/ccs/ccs.jsp and CCS_services_procedures_v2022-1_052422.csv is obtained from https://www.hcup-us.ahrq.gov/toolssoftware/ccs_svcsproc/ccssvcproc.jsp
 
