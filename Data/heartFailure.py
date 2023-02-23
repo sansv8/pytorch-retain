@@ -2,6 +2,9 @@
 import pickle
 from sklearn.model_selection import train_test_split
 from datetime import datetime
+import numpy as np
+import statistics as s
+from tabulate import tabulate
 
 # Convert codes from DIAGNOSES_ICD.csv to ICD-9 codes
 # input: dxStr - The diagnoses string
@@ -255,6 +258,60 @@ def map_diagnoses(diagnosesFile, diagnosesGroupsFile):
     # Return admDxMap
     return admDxMap
 
+# Map each admission to diagnose code without groupings 
+# Input: diagnosesFile - File containig diagnoses code fore each patient
+# Output: admDxMap - Contains a map of each admission id to a list of diagnoses codes
+def map_diagnoses_without_group(diagnosesFile):
+    # Map each admission id to diagnoses
+    admDxMap = {}
+
+    # Read through each line of map_diagnoses
+    infd = open(diagnosesFile, 'r')
+    infd.readline()
+    for line in infd:
+        # Split up the lines into tokens
+        tokens = line.split(",")
+
+        # Get admID and code for the line
+        admID = int(tokens[2])
+
+        # Get the code and memove any suffix and prefixes
+        code = tokens[4]
+        code = code.removesuffix("\n")
+        code = code.removesuffix("\"")
+        code = code.removeprefix("\"")
+
+        # Add M to code
+        code = "D" + code
+
+        # If codes is empty
+        if code == "D":
+            # Set code to be DNo
+            code = "DNo"
+
+        # Add code to map
+        # If Admission ID is in admDxMap
+        if admID in admDxMap:
+            # If code is not in admDxMap[admID] and code is not DNo
+            # Append it to the list
+            # Otherwise, do not
+            if code not in admDxMap[admID] and code != "DNo":
+                admDxMap[admID].append(code)
+        # Otherwise
+        else:
+            # If the code exists, add code to list 
+            if code != "DNo":
+                admDxMap[admID] = [code]
+            #Otherwise, map admId to empty list
+            else:
+                admDxMap[admID] = []
+
+    # Close the file
+    infd.close()
+
+    # Return admDxMap
+    return admDxMap
+
 # Map each admission to procedure code
 # Input: procedureFile - File containing procedure codes for each admission id
 # Input: procedureGroupsFile - File containing procedure code groups for each procedure code
@@ -291,6 +348,50 @@ def map_procedures(procedureFile, procedureGroupsFile, dataset):
             code = "P" + code
 
         # If admID is in procedureMap
+        if admID in dataset:
+            # Codes is not in dataset[admID], append it
+            if code not in dataset[admID]:
+                dataset[admID].append(code)
+        else:
+            #Else, map amdID to code
+            dataset[admID] = [code]
+
+    # Close file
+    infd.close()
+
+    # Return dataset
+    return dataset
+
+# Map each amdID to its procedure code without grouping
+# Input: Dataset - Contains list of medical codes for each admission id
+# Input: procedureFile - File containing procedure codes for each admission id
+# Output: Dataset - Updated version of input dataset with the addtion of procedure codes for each admission id
+def map_procedures_without_grouping(procedureFile, dataset):
+    # Next, read the procedureFile
+    # Read through each line of map_diagnoses
+    infd = open(procedureFile, 'r')
+    infd.readline()
+    for line in infd:
+        # Split up the lines into tokens
+        tokens = line.split(",")
+
+        # Get the admission ID
+        admID = int(tokens[2])
+
+        # Get CPT_CD
+        code = tokens[5]
+        code = code.removeprefix("\"")
+        code = code.removesuffix("\"")
+       
+        # Add P to code
+        code = "P" + code
+
+        # If code is just P
+        if(code == "P"):
+            #CONTINUE
+            continue
+        
+         # If admID is in procedureMap
         if admID in dataset:
             # Codes is not in dataset[admID], append it
             if code not in dataset[admID]:
@@ -424,6 +525,164 @@ def create_final_sequences(sequences, hfPatients, nonHFPatients):
     # Return final sequences
     return hf_sequences, nonHF_sequences
 
+# Analyze the dataset for each visits
+# Input: sequences, the sequence of visits
+# Input: name to store information about codes
+def analyze_sequences(sequences, name):
+    # Firstly, create four lists
+    # One list contains the total number of codes for each visit
+    # One list contains the total number of diagnoses codes for each visit
+    # One list contains the total number of procedure codes for each visit
+    # One list contains the total number of medication codes for each visit
+    total_counts = []
+    diagnoses_counts = []
+    procedure_counts = []
+    medication_counts = []
+
+    # Go through each patient in sequences
+    for patient in sequences:
+        # Go through each visit in sequecnes
+        for visit in sequences[patient]:
+            # Get size of visit and add it to toal_counts
+            total_counts.append(len(visit))
+
+            # Next, keep track of three counts
+            # The count of diagnoses codes
+            # The count of procedure codes
+            # The count of medication codes
+            diagnosesCount = 0
+            procedureCount = 0
+            medicationCount = 0
+
+            # Next, go through each code in sequences
+            for code in visit:
+                # Get first letter of code
+                letter = code[0]
+
+                # If letter is D
+                if letter == 'D':
+                    # Increase diagnosesCount by 1
+                    diagnosesCount = diagnosesCount + 1
+                # Otherwise if letter is P
+                elif letter == 'P':
+                    # Increase procedureCount
+                    procedureCount = procedureCount + 1
+                # Otherwise, if letter is M
+                else:
+                    # Incrase medicationCount
+                    medicationCount = medicationCount + 1
+            
+            # Push each count of code to their respective lists
+            diagnoses_counts.append(diagnosesCount)
+            procedure_counts.append(procedureCount)
+            medication_counts.append(medicationCount)
+    
+    # Create dictionary
+    table = [['Code', 'Mean', 'Standard Deviation', 'Minimum', '1st Quartile', 'Median', '3rd Quartile', 'Maximum']]
+    # Gather several metrics for each list
+    # This includes: mean, min, max, 1st quartile, 3rd quartile, median, std, and mode
+    # Total_counts
+    total_mean = np.mean(total_counts)
+    total_min = np.min(total_counts)
+    total_max = np.max(total_counts)
+    total_median = np.median(total_counts)
+    total_stdev = np.std(total_counts)
+    total_mode = s.mode(total_counts)
+    total_1st_quartile = np.quantile(total_counts, 0.25)
+    total_3rd_quartile = np.quantile(total_counts, 0.75)
+
+    # Add them to table
+    table.append(['All', total_mean, total_stdev, total_min, total_1st_quartile, total_median, total_3rd_quartile, total_max])
+
+    # Diagnoses_counts
+    diagnoses_mean = np.mean(diagnoses_counts)
+    diagnoses_min = np.min(diagnoses_counts)
+    diagnoses_max = np.max(diagnoses_counts)
+    diagnoses_median = np.median(diagnoses_counts)
+    diagnoses_stdev = np.std(diagnoses_counts)
+    diagnoses_mode = s.mode(diagnoses_counts)
+    diagnoses_1st_quartile = np.quantile(diagnoses_counts, 0.25)
+    diagnoses_3rd_quartile = np.quantile(diagnoses_counts, 0.75)
+
+    # Add them to table
+    table.append(['Diagnoses', diagnoses_mean, diagnoses_stdev, diagnoses_min, diagnoses_1st_quartile, diagnoses_median, diagnoses_3rd_quartile, diagnoses_max])
+
+    # Procedure_counts
+    procedure_mean = np.mean(procedure_counts)
+    procedure_min = np.min(procedure_counts)
+    procedure_max = np.max(procedure_counts)
+    procedure_median = np.median(procedure_counts)
+    procedure_stdev = np.std(procedure_counts)
+    procedure_mode = s.mode(procedure_counts)
+    procedure_1st_quartile = np.quantile(procedure_counts, 0.25)
+    procedure_3rd_quartile = np.quantile(procedure_counts, 0.75)
+
+    # Add them to table
+    table.append(['Procedure', procedure_mean, procedure_stdev, procedure_min, procedure_1st_quartile, procedure_median, procedure_3rd_quartile, procedure_max])
+
+    # Medication_counts
+    medication_mean = np.mean(medication_counts)
+    medication_min = np.min(medication_counts)
+    medication_max = np.max(medication_counts)
+    medication_median = np.median(medication_counts)
+    medication_stdev = np.std(medication_counts)
+    medication_mode = s.mode(medication_counts)
+    medication_1st_quartile = np.quantile(medication_counts, 0.25)
+    medication_3rd_quartile = np.quantile(medication_counts, 0.75)
+
+    # Add them to table
+    table.append(['Medication', medication_mean, medication_stdev, medication_min, medication_1st_quartile, medication_median, medication_3rd_quartile, medication_max])
+
+    # Save all statistices in a file based on name
+    with open(name, 'w') as f:
+        # Write the table
+        f.write("Code Statistics\n")
+        f.write("{}\n".format(tabulate(table, headers='firstrow', tablefmt='fancy_grid')))
+
+        # Total Codes
+        f.write("\nAll Codes\n")
+        f.write("Mean: {}\n".format(total_mean))
+        f.write("Standard Deviation: {}\n".format(total_stdev))
+        f.write("Mode: {}\n".format(total_mode))
+        f.write("Minimum: {}\n".format(total_min))
+        f.write("1st Quartile: {}\n".format(total_1st_quartile))
+        f.write("Median: {}\n".format(total_median))
+        f.write("3rd Quartile: {}\n".format(total_3rd_quartile))
+        f.write("Max: {}\n".format(total_max))
+
+        # Diagnoses Codes
+        f.write("\nDiagnoses Codes\n")
+        f.write("Mean: {}\n".format(diagnoses_mean))
+        f.write("Standard Deviation: {}\n".format(diagnoses_stdev))
+        f.write("Mode: {}\n".format(diagnoses_mode))
+        f.write("Minimum: {}\n".format(diagnoses_min))
+        f.write("1st Quartile: {}\n".format(diagnoses_1st_quartile))
+        f.write("Median: {}\n".format(diagnoses_median))
+        f.write("3rd Quartile: {}\n".format(diagnoses_3rd_quartile))
+        f.write("Max: {}\n".format(diagnoses_max))
+
+        # Procedure Codes
+        f.write("\nProcedure Codes\n")
+        f.write("Mean: {}\n".format(procedure_mean))
+        f.write("Standard Deviation: {}\n".format(procedure_stdev))
+        f.write("Mode: {}\n".format(procedure_mode))
+        f.write("Minimum: {}\n".format(procedure_min))
+        f.write("1st Quartile: {}\n".format(procedure_1st_quartile))
+        f.write("Median: {}\n".format(procedure_median))
+        f.write("3rd Quartile: {}\n".format(procedure_3rd_quartile))
+        f.write("Max: {}\n".format(procedure_max))
+
+        # Medication codes
+        f.write("\nMedication Codes\n")
+        f.write("Mean: {}\n".format(medication_mean))
+        f.write("Standard Deviation: {}\n".format(medication_stdev))
+        f.write("Mode: {}\n".format(medication_mode))
+        f.write("Minimum: {}\n".format(medication_min))
+        f.write("1st Quartile: {}\n".format(medication_1st_quartile))
+        f.write("Median: {}\n".format(medication_median))
+        f.write("3rd Quartile: {}\n".format(medication_3rd_quartile))
+        f.write("Max: {}\n".format(medication_max))
+    
 # Convert our string sequences to our int sequences
 # Inputs: sequences - List of visits containing a list of medical codes for each visit for each pateint
 # Inputs: types: - A dictionary containing that maps medical codes to its number value
@@ -543,7 +802,7 @@ if __name__ == "__main__":
 
     # Map each admID to its medication code
     dataset = map_medication(medicationFile, dataset)
-    
+
     # Create our sequences from the dataset
     sequences, hfPatients = create_sequences(dataset, admDateMap, pidAdmMap, hfPatients)
     
@@ -564,6 +823,7 @@ if __name__ == "__main__":
     # Using a 0.75:0.10:015 ratio
     trainSeqs, trainLabels, validationSeqs, validationLabels, testSeqs, testLabels = createDataset(hf_seqs, nonHF_seqs, 0.10, 0.15)
 
+    """
     # Finally, save the all sequecnes for the training, validation, and test sets using pickle
     pickle.dump(trainSeqs, open('train.seqs', 'wb'), -1)
     pickle.dump(validationSeqs, open('valid.seqs', 'wb'), -1)
@@ -571,3 +831,71 @@ if __name__ == "__main__":
     pickle.dump(trainLabels, open('train.labels', 'wb'), -1)
     pickle.dump(validationLabels, open('valid.labels', 'wb'), -1)
     pickle.dump(testLabels, open('test.labels', 'wb'), -1) 
+    """
+
+    # Focus on anaylysize the dataset
+    # Analyze sequence for heart failure
+    analyze_sequences(hf_sequences, "Codes_With_Group_HF_Seqs_Statistics.txt")
+
+    # Analyze sequence for non_hf sequences
+    analyze_sequences(nonhf_sequences, "Codes_With_Group_NonHF_Seqs_Statistics.txt")
+
+    # Add both sequences together
+    seqs = {}
+    for patient in hf_sequences:
+        seqs[patient] = hf_sequences[patient]
+    for patient in nonhf_sequences:
+        seqs[patient] = nonhf_sequences[patient]
+
+    # Analyze all sequences
+    analyze_sequences(seqs, "Codes_With_Goup_All_Seqs_Statistics.txt")
+
+    # Create dataset without any code grouping
+    # Map each admID to its diagnoses code without group
+    dataset_without_group = map_diagnoses_without_group(diagnosesFile)
+
+    # Map each admID to its procedure code without grouping
+    dataset_without_group = map_procedures_without_grouping(procedureFile, dataset_without_group)
+
+    # Map each admID to its medication code
+    dataset_without_group = map_medication(medicationFile, dataset_without_group)
+
+    # Create sequences from dataset
+    sequences_without_group, hfPatients = create_sequences(dataset_without_group, admDateMap, pidAdmMap, hfPatients)
+    
+    # Next, we focus on getting our final list of sequences
+    hf_sequences_wihout_group, nonhf_sequences_without_group = create_final_sequences(sequences_without_group, hfPatients, nonHFPatients)
+
+    # Anlyze hf_sequecnes_wihtout_group
+    analyze_sequences(hf_sequences_wihout_group, "Codes_Without_Group_HF_Seqs_Statisitcs.txt")
+
+    # Analyze  nonHF_sequences_wihtout_group
+    analyze_sequences(nonhf_sequences_without_group, "Codes_Without_Group_NonHF_Seqs_Statistics.txt")
+
+    # Analyze all sequences without group
+    # Add both sequences together
+    seqs_without_grouping = {}
+    for patient in hf_sequences_wihout_group:
+        seqs_without_grouping[patient] = hf_sequences_wihout_group[patient]
+    for patient in nonhf_sequences_without_group:
+        seqs_without_grouping[patient] = nonhf_sequences_without_group[patient]
+
+    # Analyze seqs_without_grouping
+    analyze_sequences(seqs_without_grouping, "Codes_Without_Group_All_Seqs_Statistics.txt")
+    
+    # Next, create types for without group
+    without_group_types = {}
+    # Next, we covert the hf_sequences_wihout_group into int sequences by passing in without_group_types
+    _, without_group_types = convert_to_int_sequences(hf_sequences_wihout_group, without_group_types)
+    
+    # Next, we convert the nonhf_sequences into int sequences
+    _, without_group_types = convert_to_int_sequences(nonhf_sequences_without_group, without_group_types)
+
+    # Print the number of codes being used in each dataset
+    print("Number of codes used in dataset with grouping: ", len(types))
+    print("Number of codes used in dataset without grouping: ", len(without_group_types))
+
+    # Save print information 
+    with open("Additional_Codes_Statistics.txt", "w") as f:
+        f.write("Number of codes used in dataset with grouping: {}\n".format(len(types)))
+        f.write("Number of codes used in dataset without grouping: {}\n".format(len(without_group_types)))

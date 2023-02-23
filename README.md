@@ -27,6 +27,20 @@ train_result20.txt - Contains the results for the best epoch of the Transformer 
 
 hfDataInfo.txt - Contains additional information on the heart failure dataset
 
+Data/Codes_With_Group_HF_Seqs_Statistics.txt - Statistics on number of codes in each visit in heart failure sequences with code grouping
+
+Data/Codes_With_Group_NonHF_Seqs_Statistics.txt - Statistics on number of codes in each visit in non heart failure sequecnes without code grouping 
+
+Data/Codes_With_Goup_All_Seqs_Statistics.txt - Statistics on number of codes in each visit in every sequence in the dataset with code grouping
+
+Data/Codes_Without_Group_HF_Seqs_Statisitcs.txt -  Statistics on number of codes in each visit in heart failure sequences without code grouping
+
+Data/Codes_Without_Group_NonHF_Seqs_Statistics.txt - Statistics on number of codes in each visit in non heart failure sequecnes with code grouping 
+
+Data/Codes_Without_Group_All_Seqs_Statistics.txt - Statistics on number of codes in each visit in every sequence in the dataset without code grouping
+
+Data/Additional_Codes_Statistics.txt - Additional statistics on numbber of codes in each visit in every sequence with and without code grouping
+
 # How to use repository 
 # Step 1: Obtain Files
 Obtain the following files from the MIMIC-III Dataset, ADMISSIONS.csv, DIAGONSES.csv, CPTEVENTS.csv, PATIENTS.csv, and PRESECRIPTIONS.csv and put them in Data Folder. These files will be used to creating the heart failure dataset. You need access to  MIMIC-III before accessing these files. They can be obtained from https://physionet.org/content/mimiciii/1.4/
@@ -52,11 +66,29 @@ test.seqs - Input sequences for test set
 
 test.labels - Output labels for test set
 
+Additional files that are produced by heartFailure.py will be discussed in Step 3
+
 # Step 3: Understanding the Heart Failure Dataset
 To have a better understanding of the heart failure dataset, you can run histogram.py which takes in the dataset created and produces a histogram as well as other metrics. 
 The histogram created is called Frequency of Visits.png, which determines the frequency of the number of visits for inputs of the dataset. 
 
 hfDataInfo.txt contains additional metrics about the dataset, including the number of patients in total, the number and percentage of patients with heart failure, the number and percentage of pateints without heart failure, the mean number of visits for all inputs, the highest number of visits for all inputs.
+
+Additionally, if you already run heartFailure.py, the program will produce additional information on the codes of the heart failure dataset. Each files contains statistics on the number of codes for each visit in each file respective dataset. This include statistics involving the number of diagnoses, medication, and procedure codes for each visit in addition to all types of codes in general. Each file also include a table to better organize the statistics of each dataset. The files produced includes:
+
+Codes_With_Group_HF_Seqs_Statistics.txt - Statistics on number of codes in each visit in heart failure sequences with code grouping
+
+Codes_With_Group_NonHF_Seqs_Statistics.txt - Statistics on number of codes in each visit in non heart failure sequecnes without code grouping 
+
+Codes_With_Goup_All_Seqs_Statistics.txt - Statisitcs on number of codes in each visit in every sequence in the dataset with code grouping
+
+Codes_Without_Group_HF_Seqs_Statisitcs.txt -  Statistics on number of codes in each visit in heart failure sequences without code grouping
+
+Codes_Without_Group_NonHF_Seqs_Statistics.txt - Statistics on number of codes in each visit in non heart failure sequecnes with code grouping 
+
+Codes_Without_Group_All_Seqs_Statistics.txt - Statisitcs on number of codes in each visit in every sequence in the dataset without code grouping
+
+In addition, heartFailure.py produced Additional_Codes_Statistics.txt, which includes additional statistics about the number of codes in both datasets with and without code grouping. Additional_Codes_Statistics currently contain the number of codes being used in each dataset. 
 
 # Step 4: Training RETAIN on dataset
 Afterwards, you can use the dataset created to train either RETAIN or Transformer RETAIN. 

@@ -1,0 +1,2 @@
+Number of codes used in dataset with grouping: 2845
+Number of codes used in dataset without grouping: 7648
